@@ -1,0 +1,899 @@
+non-SSPT improvement
+====================
+bdist --BDnodes 8 --BDmins 2000 --BDenv '~/pyt.env' --BDexclude c460c010 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/rerun/bottomMachineCache \
+  --save_model /home/mrglass/gpfs/NIR/HotpotQA/rerun/bm/model.bin \
+  --fp16
+
+===================
+re-run
+===================
+bdist --BDnodes 8 --BDmins 2000 --BDenv '~/pyt.env' --BDexclude c460c010 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/rerun/bottomMachineCache \
+  --save_model /home/mrglass/gpfs/NIR/HotpotQA/rerun/bm/sspt_model2.bin \
+  --pretrained_model /home/mrglass/gpfs/sspt_models/large_100Msspt_model.bin \
+  --fp16
+
+
+# NOTE: self.sent_marker_style = SentMarkerStyle.no
+bdist --BDnodes 8 --BDmins 2000 --BDenv '~/pyt.env' --BDexclude c460c010 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/rerun/bottomMachineCache \
+  --save_model /home/mrglass/gpfs/NIR/HotpotQA/rerun/bm/sspt_model.bin \
+  --pretrained_model /home/mrglass/gpfs/sspt_models/large_100Msspt_model.bin \
+  --fp16
+
+#
+bdist --BDnodes 4 --BDmins 600  --BDenv '~/pyt.env' --BDexclude c460c010 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/rerun/bottomMachineCache \
+  --load_model /home/mrglass/gpfs/NIR/HotpotQA/rerun/bm/sspt_model.bin \
+  --prediction_file /home/mrglass/gpfs/NIR/HotpotQA/rerun/bm_out/sspt_predictions.tsv \
+  --fp16
+confidence_reestimation.py:253 - with rank bonus = [0.2, 0.1]
+confidence_reestimation.py:319 - Max F1 = 0.8569211162459165, EM = 0.5679945982444294 @ 0.4
+
+
+# now do predictions2rc_data_simple and hotpotqa2rc_data (/home/mrglass/gpfs/NIR/HotpotQA/train_rc_data.jsonl)
+bsingle --BDenv '~/pyt.env' predictions2rc_data_simple.py \
+--predictions /home/mrglass/gpfs/NIR/HotpotQA/rerun/bm_out/sspt_predictions.tsv \
+--data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+--output /home/mrglass/gpfs/NIR/HotpotQA/rerun/dev_rc_data.jsonl \
+--thresholds 0,0,0.1
+
+top_machine files are now:
+  /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl
+  /home/mrglass/gpfs/NIR/HotpotQA/rerun/dev_rc_data.jsonl
+
+# TODO: running now (CUDA out-of-memory if only 4 nodes)
+# NOTE best with gt supporting facts
+# previously got: Epoch 4 F1 = 0.7861903311563662
+bdist --BDnodes 8 --BDmins 600 --BDenv '~/pyt.env' --BDexclude c460c010 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/rerun/tm_results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 4 \
+--load_model /home/mrglass/gpfs/sspt_models/large_100M_i_model.bin \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/rerun/dev_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/rerun/topMachineCache \
+--experiment_name large_sspt_i_rerun \
+--save_model /home/mrglass/gpfs/NIR/HotpotQA/rerun/tm/sspt_i_model.bin \
+--prediction_file /home/mrglass/gpfs/NIR/HotpotQA/rerun/tm_out/sspt_i_predictions.json
+
+
+====================
+Bottom machine
+====================
+
+ccc --CCCqueue x86_1h --CCCmem 30G --CCCcores 1+1  train_sf2.py \
+  --bert_model bert-base-uncased \
+  --train_data /dccstor/complex-e2e-qa/HotpotQA/TAP/hotpot_train_v1.1.json \
+  --dev_data /dccstor/complex-e2e-qa/HotpotQA/TAP/hotpot_dev_distractor_v1.json \
+  --data_limit 1000
+
+# small run
+bdist --BDnodes 4 --BDmins 60 train_sf2.py \
+  --bert_model bert-base-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+  --data_limit 1000
+
+# tested cache (but note batch size is 4)
+bdist --BDnodes 4 --BDmins 1440 train_sf2.py \
+  --bert_model bert-base-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCache \
+  --fp16
+
+# testing confidence re-estimation
+bdist --BDnodes 4 --BDmins 600 train_sf2.py \
+  --bert_model bert-base-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+  --data_limit 1000 \
+  --fp16
+
+bdist --BDnodes 8 --BDmins 1440 train_sf2.py \
+  --bert_model bert-base-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCache \
+  --fp16
+
+# ran this for bert-large SF train
+bdist --BDnodes 8 --BDmins 600 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLarge \
+  --save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/model.bin \
+  --fp16
+
+# Max F1 = 0.851331854431134, EM = 0.5512491559756921 @ 0.37
+bdist --BDnodes 4 --BDmins 600 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLarge \
+  --load_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/model.bin \
+  --prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/plain_predictions.tsv \
+  --fp16
+
+
+bdist --BDnodes 8 --BDmins 600 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLarge \
+  --save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_model.bin \
+  --pretrained_model /home/mrglass/gpfs/sspt_models/large_100Msspt_model.bin \
+  --fp16
+# Max F1 = 0.8557967563234485, EM = 0.5692099932478055 @ 0.44
+bdist --BDnodes 4 --BDmins 600 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLarge \
+  --load_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_model.bin \
+  --prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_predictions.tsv \
+  --fp16
+
+#
+bdist --BDnodes 8 --BDmins 600 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLarge \
+  --save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_model.bin \
+  --pretrained_model /home/mrglass/gpfs/sspt_models/large_100M_i_model.bin \
+  --fp16
+#NOTE: best single with markers,  Max F1 = 0.8582142495512047, EM = 0.5670492910195813 @ 0.42
+bdist --BDnodes 4 --BDmins 600 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLarge \
+  --load_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_model.bin \
+  --prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_predictions.tsv \
+  --fp16
+
+#NOTE: best single no [SENTSTART] [SENTEND]
+bdist --BDnodes 8 --BDmins 1200 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLargeNoST \
+  --save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_nost_model.bin \
+  --pretrained_model /home/mrglass/gpfs/sspt_models/large_100M_i_model.bin \
+  --sent_marker_style no \
+  --fp16
+# Max F1 = 0.8616515827184497, EM = 0.575692099932478 @ 0.41000000000000003
+bdist --BDnodes 4 --BDmins 600 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLargeNoST \
+  --load_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_nost_model.bin \
+  --prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_nost_predictions.tsv \
+  --sent_marker_style no \
+  --fp16
+
+# BERT-base with SSPT, Max F1 = 0.8513066961547898, EM = 0.5658338960162053 @ 0.46
+# NOTE: 1% gain from BERT-large vs. BERT-base
+bdist --BDnodes 8 --BDmins 1440 train_sf2.py \
+  --bert_model bert-base-uncased \
+  --pretrained_model /home/mrglass/gpfs/sspt_models/base_100M_model.bin \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheNoST \
+  --prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/base_out/sspt_nost_predictions.tsv \
+  --sent_marker_style no \
+  --fp16
+
+#TODO running now
+bdist --BDnodes 8 --BDmins 1440 train_sf2.py \
+  --bert_model bert-base-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheNoST \
+  --prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/base_out/vanilla_nost_predictions.tsv \
+  --sent_marker_style no \
+  --fp16
+
+# no SSPT
+bdist --BDnodes 8 --BDmins 1200 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLargeNoST \
+  --save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/vanilla_nost_model.bin \
+  --sent_marker_style no \
+  --fp16
+# Max F1 = 0.8526682845251569, EM = 0.5598919648885888 @ 0.43
+bdist --BDnodes 4 --BDmins 600 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLargeNoST \
+  --load_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/vanilla_nost_model.bin \
+  --prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/vanilla_nost_predictions.tsv \
+  --sent_marker_style no \
+  --fp16
+
+#test the [SENTSTART] [SENTEND] as markers only
+bdist --BDnodes 8 --BDmins 1200 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLargeMarkST \
+  --save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_markst_model.bin \
+  --pretrained_model /home/mrglass/gpfs/sspt_models/large_100M_i_model.bin \
+  --sent_marker_style mark \
+  --fp16
+# Max F1 = 0.8600499987671013, EM = 0.57407157326131 @ 0.41000000000000003
+bdist --BDnodes 4 --BDmins 600 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLargeMarkST \
+  --load_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_markst_model.bin \
+  --prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_markst_predictions.tsv \
+  --sent_marker_style mark \
+  --fp16
+
+bdist --BDnodes 8 --BDmins 1800 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLargeRedo \
+  --save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_model_r.bin \
+  --pretrained_model /home/mrglass/gpfs/sspt_models/large_100Msspt_model.bin \
+  --fp16
+# Max F1 = 0.8581119390775208, EM = 0.5717758271438217 @ 0.42
+bdist --BDnodes 4 --BDmins 600 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLargeRedo \
+  --load_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_model_r.bin \
+  --prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_r_predictions.tsv \
+  --fp16
+
+
+#TODO test two_layer_sent_classifier
+bdist --BDnodes 8 --BDmins 1200 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLargeRedo \
+  --save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_2sent_model.bin \
+  --pretrained_model /home/mrglass/gpfs/sspt_models/large_100M_i_model.bin \
+  --two_layer_sent_classifier \
+  --fp16
+#TODO
+bdist --BDnodes 4 --BDmins 600 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLargeRedo \
+  --load_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_2sent_model.bin \
+  --prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_2sent_predictions.tsv \
+  --two_layer_sent_classifier \
+  --fp16
+
+bdist --BDnodes 8 --BDmins 1800 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLargeRedo \
+  --save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_model_r.bin \
+  --pretrained_model /home/mrglass/gpfs/sspt_models/large_100M_i_model.bin \
+  --fp16
+# Max F1 = 0.8537720798220669, EM = 0.5461174881836597 @ 0.34
+bdist --BDnodes 4 --BDmins 600 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLargeRedo \
+  --load_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_model_r.bin \
+  --prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_r_predictions.tsv \
+  --fp16
+
+# testing cross apply
+bdist --BDnodes 8 --BDmins 600 train_sf2.py \
+  --bert_model bert-base-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCache \
+  --prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/base_folds/predictions0.tsv \
+  --fp16 --fold 0
+
+# to train the cross-apply models, and get the predictions for each fold
+bdist --BDnodes 8 --BDmins 600 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLarge \
+  --prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_folds/predictions0.tsv \
+  --fp16 --save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_folds/model0.bin --fold 0
+
+# for using the cross-apply models on dev
+bdist --BDnodes 4 --BDmins 120 train_sf2.py \
+  --bert_model bert-large-uncased \
+  --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheLarge \
+  --load_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_folds/model0.bin \
+  --prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_folds/dev_predictions0.tsv \
+  --fp16
+
+# NOTE: best Max F1 = 0.8720910959398674, EM = 0.5931127616475355 @ 0.43
+# three different pre-processing
+bsingle tune_sf_thresholds.py \
+    --predictions /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_nost_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_markst_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_r_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_r_predictions.tsv \
+    --data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json
+
+Max F1 = 0.8621359606707582, EM = 0.5736664415935179 @ 0.45
+bsingle tune_sf_thresholds.py \
+    --predictions /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/plain_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_predictions.tsv \
+    --data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json
+
+# Max F1 = 0.8674649410908899, EM = 0.5797434166103984 @ 0.41000000000000003
+bsingle tune_sf_thresholds.py \
+    --predictions /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/plain_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_predictions.tsv \
+    --data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json
+
+# NOTE: current best (but requires two different featurizations - so two different caches)
+# Max F1 = 0.8709521133829237, EM = 0.5889264010803511 @ 0.42 (.2, .1 rank bonus)
+bsingle tune_sf_thresholds.py \
+    --predictions /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_r_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_r_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/plain_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_predictions.tsv \
+    --data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json
+
+
+# on the subset with train_sf2/base
+ Max F1 = 0.8663233416052141
+bdist --BDnodes 8 --BDmins 600 train_sf2.py \
+  --bert_model bert-base-uncased \
+  --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+  --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+  --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineCacheSmall \
+  --prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/small/predictions_tsf2.tsv \
+  --data_limit 10000 --fp16
+
+# Epoch 3 F1 = 0.6850027935027954
+bdist --BDnodes 4 --BDmins 300 train_sf_simple.py \
+      --bert_model bert-base-uncased \
+      --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+      --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+      --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineSimpleCacheSmall \
+      --prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/small/predictions_simple.tsv \
+      --data_limit 10000 \
+      --train_batch_size 32 --fp16
+
+# validate phase took a long time
+Epoch 3 F1 = 0.7008827783327796
+bdist --BDnodes 4 --BDmins 600 train_sf_chain.py \
+      --bert_model bert-base-uncased \
+      --train_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+      --dev_data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+      --cache_dir /home/mrglass/gpfs/NIR/HotpotQA/bottomMachineChainCacheSmall \
+      --prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/small/predictions_chained.tsv \
+      --data_limit 10000 --negative_downsample 0.5 \
+      --train_batch_size 32 --fp16
+
+====================
+Bottom machine Apply
+====================
+
+bsingle tune_sf_thresholds.py \
+    --predictions /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_folds/predictions_all_folds.tsv \
+    --data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json
+
+bsingle tune_sf_thresholds.py \
+--predictions /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_folds/dev_predictions0.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_folds/dev_predictions1.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_folds/dev_predictions2.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_folds/dev_predictions3.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_folds/dev_predictions4.tsv \
+--data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json
+
+python predictions2rc_data.py --predictions /users/mrglass/NIR/HotpotQA/TAP/predictions.tsv \
+--data /users/mrglass/NIR/HotpotQA/TAP/hotpot_dev_distractor_v1.json \
+--output /users/mrglass/NIR/HotpotQA/TAP/dev_rc_data.jsonl
+
+bsingle predictions2rc_data.py \
+ --predictions /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/predictions.tsv \
+ --data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+ --output /home/mrglass/gpfs/NIR/HotpotQA/dev_rc_data.jsonl
+
+bsingle predictions2rc_data.py \
+--predictions /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/predictions.tsv \
+--data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+--output /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred2_rc_data.jsonl
+
+bsingle predictions2rc_data.py \
+--predictions /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/predictions.tsv \
+--data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+--output /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred3_rc_data.jsonl \
+--thresholds 0,0.2,0.3
+
+bsingle predictions2rc_data.py \
+--predictions /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/plain_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_predictions.tsv \
+--data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+--output /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_9_rc_data.jsonl \
+--thresholds 0,0.2,0.3
+
+# NOTE: current best
+bsingle predictions2rc_data_simple.py \
+--predictions /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/plain_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_predictions.tsv \
+--data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+--output /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_95_rc_data.jsonl \
+--qid2sfs_used /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_95_qid2sfs_used.json \
+--thresholds 0,0,0.1
+
+# using more complex predictions2rc_data
+bsingle predictions2rc_data.py \
+--predictions /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/plain_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_predictions.tsv \
+--data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+--output /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_95_rc_data_complex.jsonl \
+--qid2sfs_used /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_95_complex_qid2sfs_used.json \
+--thresholds 0,0,0.1
+
+
+# NOTE: for the cross apply train
+bsingle predictions2rc_data_simple.py \
+--predictions /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_folds/predictions_all_folds.tsv \
+--data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+--output /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_pred_95_rc_data.jsonl \
+--thresholds 0,0,0.1
+
+# using more complex predictions2rc_data
+bsingle predictions2rc_data.py \
+--predictions /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_folds/predictions_all_folds.tsv \
+--data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_train_v1.1.json \
+--output /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_pred_95_rc_data_complex.jsonl \
+--thresholds 0,0,0.1
+
+# not better than 0.95
+bsingle predictions2rc_data.py \
+--predictions /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/plain_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_predictions.tsv \
+--data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+--output /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_97_rc_data.jsonl \
+--qid2sfs_used /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_97_qid2sfs_used.json \
+--thresholds 0,0,0.05
+
+bsingle boost_helpful_sfs.py \
+    --qid2sfs_used /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_95_qid2sfs_used.json \
+    --answers /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_95_predictions.json,/home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_95_predictions.json \
+    --data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+    --output /home/mrglass/gpfs/NIR/HotpotQA/TAP/qid2sid2bonus.json
+
+================
+Top machine
+================
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/base_pred_first_only_cache \
+--max_seq_length 510 --train_batch_size 16 --learning_rate 3e-5 --fp16 --first_answer_only --num_epochs 8 \
+--bert_model bert-base-uncased  --experiment_name base_first_answer --results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results
+
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/base_pred_multi_cache \
+--max_seq_length 510 --train_batch_size 16 --learning_rate 3e-5 --fp16 --num_epochs 8 \
+--bert_model bert-base-uncased  --experiment_name base_multi_answer --results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results
+
+#
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_pred_first_only_cache \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 --num_epochs 4 \
+--bert_model bert-large-uncased  --experiment_name large_first_only_answer --first_answer_only \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results
+
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_pred_cache \
+--max_seq_length 384 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 4 --experiment_name large_multi_answer \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results
+
+#
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_pred_cache \
+--max_seq_length 384 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 4 --experiment_name large_multi_2layer_answer \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results
+
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_pred_first_only_cache \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 --num_epochs 4 \
+--bert_model bert-large-uncased  --experiment_name large_first_only_2layer_answer --first_answer_only \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results
+
+
+
+# 76.5 with gold standard supporting facts, bert-large
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_gold_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_gold_cache \
+--max_seq_length 384 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 4 --experiment_name large_gold_multi_2layer_answer \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results
+
+
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred38_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_pred38_cache \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 4 --experiment_name large_pred38_multi_2layer_answer \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results
+
+# Epoch 3 F1 = 0.7182220013327972
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred3_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_pred3_cache \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 4 --experiment_name large_pred3_multi_2layer_answer \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results
+
+
+# epoch 4: 0.7606694234375371
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 4 \
+--load_model /home/mrglass/gpfs/sspt_models/large_100Msspt_model.bin \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred3_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_pred3_cache \
+--experiment_name large_sspt_pred3_multi_2layer_answer
+
+#
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 5 \
+--load_model /home/mrglass/gpfs/sspt_models/large_10M_i_pool_model.bin \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred3_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_pred3_cache \
+--experiment_name large_sspt_pred3_multi_2layer_answer
+
+# Epoch 4 F1 = 0.7574117218278508
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 5 \
+--load_model /home/mrglass/gpfs/sspt_models/large_100Msspt_model.bin \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred3_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_pred3_cache \
+--experiment_name large_sspt_no_pool_pred3_multi_2layer_answer \
+--prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_no_pool_predictions.json
+
+# Epoch 4 F1 = 0.7606694208027974
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 4 \
+--load_model /home/mrglass/gpfs/sspt_models/large_100Msspt_model.bin \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred3_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_pred3_cache \
+--experiment_name large_sspt_no_pool_pred3_multi_2layer_answer \
+--save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_model.bin \
+--prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_predictions.json
+
+# 2nd best with gt supporting facts
+Epoch 3 F1 = 0.7823377333331132
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 4 \
+--load_model /home/mrglass/gpfs/sspt_models/large_100Msspt_model.bin \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_95_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_pred_95_cache \
+--experiment_name large_sspt_pred95_multi_2layer_answer \
+--save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_95_model.bin \
+--prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_95_predictions.json
+
+# NOTE best with gt supporting facts
+Epoch 4 F1 = 0.7861903311563662
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 4 \
+--load_model /home/mrglass/gpfs/sspt_models/large_100M_i_model.bin \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_95_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_pred_95_cache \
+--experiment_name large_sspt_i_pred95_multi_2layer_answer \
+--save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_95_model.bin \
+--prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_95_predictions.json
+
+#  test first answer only on gt supporting facts
+# Epoch 4 F1 = 0.786263349721126
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 4 \
+--load_model /home/mrglass/gpfs/sspt_models/large_100M_i_model.bin \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_95_rc_data.jsonl \
+--first_answer_only \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_pred_95_1A_cache \
+--experiment_name large_sspt_i_pred95_multi_2layer_1A_answer \
+--save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_95_1A_model.bin \
+--prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_95_1A_predictions.json
+
+# NOTE: current best
+# Epoch 4 F1 = 0.7938678643230369
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_pred_95_rc_data.jsonl \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 4 \
+--load_model /home/mrglass/gpfs/sspt_models/large_100M_i_model.bin \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_95_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_cross_apply_pred_95_cache \
+--experiment_name large_sspt_i_cross_apply_pred95 \
+--save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_cross_apply_95_model.bin \
+--prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_cross_apply_95_predictions.json
+
+# "f1": 0.7548140265125347
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_pred_95_rc_data.jsonl \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 4 \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_95_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_cross_apply_pred_95_cache \
+--experiment_name large_vanilla_pred95_cross_answer \
+--save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/vanilla_95_cross_model.bin \
+--prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/vanilla_95_cross_predictions.json
+
+# test with only first answer span
+# Epoch 4 F1 = 0.7938876007105888
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_pred_95_rc_data.jsonl \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 4 \
+--load_model /home/mrglass/gpfs/sspt_models/large_100M_i_model.bin \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_95_rc_data.jsonl \
+--first_answer_only \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_cross_apply_pred_95_1A_cache \
+--experiment_name large_sspt_i_cross_apply_pred95_1A \
+--save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_cross_apply_95_1A_model.bin \
+--prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_cross_apply_95_1A_predictions.json
+
+# Epoch 4 F1 = 0.7792313794117603
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_pred_95_rc_data_complex.jsonl \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 4 \
+--load_model /home/mrglass/gpfs/sspt_models/large_100M_i_model.bin \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_95_rc_data_complex.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_cross_apply_pred_95_complex_cache \
+--experiment_name large_sspt_i_cross_apply_pred95_complex \
+--save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_cross_apply_95_complex_model.bin \
+--prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_cross_apply_95_complex_predictions.json
+
+
+# Epoch 2 F1 = 0.7892919503390533
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_all_95_data.jsonl \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 4 \
+--load_model /home/mrglass/gpfs/sspt_models/large_100M_i_model.bin \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_95_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_union_pred_95_cache \
+--experiment_name large_sspt_i_union_pred95 \
+--save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_union_95_model.bin \
+--prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_union_95_predictions.json
+
+# F1 = 0.7855840508842495
+bsingle --BDmins 600 train_rc.py \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_97_rc_data.jsonl \
+--experiment_name large_sspt_i_pred97_multi_2layer_answer \
+--load_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_95_model.bin \
+--prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_97_predictions.json
+
+
+# "f1": 0.7513025264640929
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 4 \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_95_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_pred_95_cache \
+--experiment_name large_vanilla_pred95_multi_2layer_answer \
+--save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/vanilla_95_model.bin \
+--prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/vanilla_95_predictions.json
+
+# actually doing the same training as above - only the validation/prediction is different
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 4 \
+--load_model /home/mrglass/gpfs/sspt_models/large_100Msspt_model.bin \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred_9_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_pred_9_cache \
+--experiment_name large_sspt_pred9_multi_2layer_answer \
+--save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_9_model.bin \
+--prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_9_predictions.json
+
+# Epoch 5 F1 = 0.7479762034339776
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 5 \
+--load_model /home/mrglass/gpfs/sspt_models/large_100M_i_model.bin \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred3_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_pred3_cache \
+--experiment_name large_sspt_i_pred3_multi_2layer_answer \
+--save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_model.bin \
+--prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_predictions.json
+
+# Epoch 5 F1 = 0.7523514281144841
+bdist --BDnodes 4 --BDmins 600 train_rc.py \
+--train_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/train_rc_data.jsonl \
+--results_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-large-uncased  --num_epochs 6 \
+--load_model /home/mrglass/gpfs/sspt_models/large_100M_i_model.bin \
+--dev_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_pred3_rc_data.jsonl \
+--cache_dir /home/mrglass/gpfs/NIR/HotpotQA/TAP/large_pred3_cache \
+--experiment_name large_sspt_i_pred3_multi_2layer_answer \
+--save_model /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_model_6.bin \
+--prediction_file /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_predictions_6.json
+
+/home/mrglass/gpfs/sspt_models/large_100Msspt_model.bin
+or
+/home/mrglass/gpfs/sspt_models/large_10M_i_pool_model.bin
+/home/mrglass/gpfs/sspt_models/large_100M_i_model.bin
+
+try 5, 6 epochs on sspt pred3
+try even lower thresholds on supporting facts
+
+# bert base with sspt
+ccc --CCCqueue x86_12h --CCCcores 1+4 train_rc.py \
+--train_file /dccstor/complex-e2e-qa/HotpotQA/train_pred_95_rc_data.jsonl \
+--results_dir /dccstor/complex-e2e-qa/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-base-uncased  --num_epochs 4 \
+--load_model /dccstor/kandr/GLUE/SSPT/models/base_50Msspt_model.bin \
+--dev_file /dccstor/complex-e2e-qa/HotpotQA/dev_t1_rc_data.jsonl \
+--cache_dir /dccstor/complex-e2e-qa/HotpotQA/TAP/base_pred_95_cache \
+--experiment_name base_sspt_pred95 \
+--save_model /dccstor/complex-e2e-qa/HotpotQA/TAP/tm/large_out/base_sspt_95_model.bin \
+--prediction_file /dccstor/complex-e2e-qa/HotpotQA/TAP/tm/large_out/base_sspt_95_predictions.json
+
+# bert base no sspt
+# Epoch 4 F1 = 0.7385881007875011
+ccc --CCCqueue x86_12h --CCCcores 1+4 train_rc.py \
+--train_file /dccstor/complex-e2e-qa/HotpotQA/train_pred_95_rc_data.jsonl \
+--results_dir /dccstor/complex-e2e-qa/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 16 --learning_rate 3e-5 --fp16 \
+--bert_model bert-base-uncased  --num_epochs 4 \
+--dev_file /dccstor/complex-e2e-qa/HotpotQA/dev_t1_rc_data.jsonl \
+--cache_dir /dccstor/complex-e2e-qa/HotpotQA/TAP/base_pred_95_cache \
+--experiment_name base_vanilla_pred95 \
+--save_model /dccstor/complex-e2e-qa/HotpotQA/TAP/tm/large_out/base_vanilla_model.bin \
+--prediction_file /dccstor/complex-e2e-qa/HotpotQA/TAP/tm/large_out/base_vanilla_predictions.json
+
+================
+Final Eval
+================
+
+Leaderboard metrics = em=63.29	f1=76.36	sp_em=58.25	sp_f1=85.60	joint_em=41.39	joint_f1=67.92
+
+metrics = {'em': 0.6645509790681972, 'f1': 0.8002364225361368, 'prec': 0.825315292405096, 'recall': 0.8117287534657562,
+ 'sp_em': 0.5797434166103984, 'sp_f1': 0.8674649410908941, 'sp_prec': 0.8820070094209277, 'sp_recall': 0.8794114337159635,
+ 'joint_em': 0.4176907494935854, 'joint_f1': 0.7104526464560095, 'joint_prec': 0.7425128751259779, 'joint_recall': 0.7299789366234362}
+[[ 199   26    0]
+ [  42  191    0]
+ [   6    6 6935]]
+make_prediction_file.py:69 - At threshold 0.1
+make_prediction_file.py:70 - Full Recall Count 6513, F1 = 0.8246051095858185, EM = 0.6884692154153232
+make_prediction_file.py:72 - Part Recall Count 892, F1 = 0.6223067602551905, EM = 0.4899103139013453
+bsingle make_prediction_file.py \
+    --facts /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/plain_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_predictions.tsv \
+    --thresholds 0.41 \
+    --answers /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_union_95_predictions.json,/home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_95_predictions.json,/home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_cross_apply_95_predictions.json,/home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_95_predictions.json \
+    --data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+    --output /home/mrglass/gpfs/NIR/HotpotQA/TAP/predictions.json
+
+metrics = {'em': 0.6557731262660365, 'f1': 0.793870257102485, 'prec': 0.8189671750711585, 'recall': 0.8061085413926308,
+           'sp_em': 0.5736664415935179, 'sp_f1': 0.8621359606707583, 'sp_prec': 0.8794135236809195, 'sp_recall': 0.8718234140381405,
+           'joint_em': 0.41039837947332886, 'joint_f1': 0.7026242912748043, 'joint_prec': 0.7368241242777068, 'joint_recall': 0.7208710005367603}
+bsingle make_prediction_file.py \
+    --facts /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/plain_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_predictions.tsv \
+    --thresholds 0.45 \
+    --answers /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_95_predictions.json,/home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_95_predictions.json \
+    --data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+    --output /home/mrglass/gpfs/NIR/HotpotQA/TAP/predictions.json
+
+metrics = {'em': 0.6178257933828494, 'f1': 0.757411721827851, 'prec': 0.792979164657085, 'recall': 0.7606770216605583,
+           'sp_em': 0.5736664415935179, 'sp_f1': 0.8621359606707583, 'sp_prec': 0.8794135236809195, 'sp_recall': 0.8718234140381405,
+           'joint_em': 0.3964888588791357, 'joint_f1': 0.6746951690244973, 'joint_prec': 0.7175974245201141, 'joint_recall': 0.6845804987134299}
+bsingle make_prediction_file.py \
+    --facts /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/plain_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_predictions.tsv \
+    --thresholds 0.45 \
+    --answers /home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_no_pool_predictions.json,/home/mrglass/gpfs/NIR/HotpotQA/TAP/tm/large_out/sspt_i_predictions.json \
+    --data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+    --output /home/mrglass/gpfs/NIR/HotpotQA/TAP/predictions.json
+
+===================
+Apply Prep.
+===================
+python /home/mrglass/wksp/ai-c-complex-e2e-qa/examples/checkpoint_convert.py --multipart sspt_i_cross_apply_95_model.bin --model_only sspt_i_cross_apply_95_model_m.bin
+
+python /home/mrglass/wksp/ai-c-complex-e2e-qa/evaluation/hotpotqa_evaluate_v1.py pred.json /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json
+python /home/mrglass/wksp/ai-c-complex-e2e-qa/tap2/bottom_machine/tune_sf_thresholds.py --data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json --predictions
+
+
+===================
+SF threshold study
+===================
+source activate pyt.env
+export PYTHONPATH=~/wksp/ai-c-complex-e2e-qa
+
+fraction full recall = [(0.8795408507765023, 0.1), (0.8225523295070898, 0.2), (0.775016880486158, 0.30000000000000004), (0.7318028359216745, 0.4), (0.6914247130317354, 0.5), (0.6507765023632681, 0.6000000000000001), (0.6009453072248481, 0.7000000000000001), (0.5553004726536124, 0.8), (0.49939230249831196, 0.9)]
+python ~/wksp/ai-c-complex-e2e-qa/tap2/bottom_machine/tune_sf_thresholds.py \
+    --predictions /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/plain_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_predictions.tsv \
+    --data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+    --threshold_plot /home/mrglass/gpfs/NIR/HotpotQA/TAP/performance_vs_threshold.tsv
+at 0.1, supporting fact count avg = 3.269952734638758, min = 1, max = 11
+at 0.41, supporting fact count avg = 2.4190411883862257, min = 1, max = 7
+
+THRESH=1
+python ~/wksp/ai-c-complex-e2e-qa/tap2/top_machine/predictions2rc_data_simple.py \
+--predictions /home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_i_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/plain_predictions.tsv,/home/mrglass/gpfs/NIR/HotpotQA/TAP/bm/large_out/sspt_predictions.tsv \
+--data /home/mrglass/gpfs/NIR/HotpotQA/hotpot_dev_distractor_v1.json \
+--output /home/mrglass/gpfs/NIR/HotpotQA/TAP/dev_t${THRESH}_rc_data.jsonl \
+--thresholds 0,0.${THRESH}
+
+# confidence_reestimation.py:360 - [(0.9092505064145847, 0.05), (0.8925050641458474, 0.075), (0.8795408507765023, 0.1), (0.8225523295070898, 0.2), (0.775016880486158, 0.3), (0.7318028359216745, 0.4)]
+0.050 thresh: F1 = 0.7876591581259778  'em': 0.6518568534773801, 'f1': 0.787659158125979   fr=0.9092505064145847
+0.075 thresh: F1 = 0.7839318402640045  'em': 0.6484807562457798, 'f1': 0.7839318402640043  fr=0.8925050641458474
+0.100 thresh: F1 = 0.7857436711572443  'em': 0.650101282916948, 'f1': 0.785743671157244    fr=0.8795408507765023
+0.200 thresh: F1 = 0.7823795276293548  'em': 0.6460499662390277, 'f1': 0.7823795276293543  fr=0.8225523295070898
+0.300 thresh: F1 = 0.7804510572986351  'em': 0.6446995273463876, 'f1': 0.7804510572986353  fr=0.775016880486158
+0.400 thresh: F1 = 0.7773172292576443  'em': 0.6432140445644835, 'f1': 0.7773172292576443  fr=0.7318028359216745
+ccc --CCCqueue x86_6h train_rc.py \
+--results_dir /dccstor/complex-e2e-qa/HotpotQA/TAP/results \
+--max_seq_length 448 --train_batch_size 4 --fp16 \
+--bert_model bert-large-uncased \
+--load_model /dccstor/complex-e2e-qa/HotpotQA/TAP/top_models/sspt_i_95_model_m.bin \
+--dev_file /dccstor/complex-e2e-qa/HotpotQA/TAP/dev_rc_data/dev_t${THRESH}_rc_data.jsonl \
+--experiment_name large_sspt_i_t${THRESH} \
+--prediction_file /dccstor/complex-e2e-qa/HotpotQA/TAP/tm/large_out/sspt_i_t${THRESH}_predictions.json
+
+python ~/wksp/ai-c-complex-e2e-qa/tap2/make_prediction_file.py \
+    --facts /dccstor/complex-e2e-qa/HotpotQA/TAP/sspt_i_predictions.tsv \
+    --thresholds 0.41 \
+    --answers /dccstor/complex-e2e-qa/HotpotQA/TAP/tm/large_out/sspt_i_t${THRESH}_predictions.json \
+    --data /dccstor/complex-e2e-qa/HotpotQA/hotpot_dev_distractor_v1.json \
+    --output /dccstor/complex-e2e-qa/HotpotQA/TAP/tm/large_out/t_predictions.json
+
+top machine ablation
+---------
+
+
+python ~/wksp/ai-c-complex-e2e-qa/tap2/make_prediction_file.py \
+    --facts /dccstor/complex-e2e-qa/HotpotQA/TAP/sspt_i_predictions.tsv \
+    --thresholds 0.41 \
+    --answers /dccstor/complex-e2e-qa/HotpotQA/TAP/tm/large_out/base_vanilla_predictions.json \
+    --data /dccstor/complex-e2e-qa/HotpotQA/hotpot_dev_distractor_v1.json \
+    --output /dccstor/complex-e2e-qa/HotpotQA/TAP/tm/large_out/a_predictions.json
+
+
+sspt_i_95_1A_predictions.json: 'em': 0.6515867656988521, 'f1': 0.786263349721128
+sspt_i_cross_apply_95_predictions.json: 'em': 0.6587440918298447, 'f1': 0.7938678643230359
+vanilla_95_cross_predictions.json: 'em': 0.6162052667116813, 'f1': 0.7548140265125347
+base_sspt_95_predictions.json: 'em': 0.6330857528696826, 'f1': 0.7724775717525003
+base_vanilla_predictions.json: 'em': 0.599729912221472, 'f1': 0.7385881007875026
